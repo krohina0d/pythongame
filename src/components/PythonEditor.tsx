@@ -1,5 +1,5 @@
-import { Box, Button, Paper, Typography, IconButton, Tooltip, TextField } from '@mui/material';
-import { PlayArrow, AdminPanelSettings, Visibility, Edit, Save, Cancel } from '@mui/icons-material';
+import { Box, Button, Paper, Typography, IconButton, Tooltip, TextField, ButtonGroup } from '@mui/material';
+import { PlayArrow, AdminPanelSettings, Visibility, Edit, Save, Cancel, Send } from '@mui/icons-material';
 import { useState, useEffect, useRef } from 'react';
 import { styled } from '@mui/material/styles';
 import { useTask } from '../context/TaskContext';
@@ -308,6 +308,63 @@ const PythonEditor = () => {
   // Создаем массив номеров строк
   const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
 
+  const handleSubmit = async () => {
+    setIsRunning(true);
+    setOutput('');
+    setIsCorrect(null);
+
+    try {
+      // Сначала запускаем код
+      const turtleDiv = document.getElementById('mycanvas');
+      if (turtleDiv) {
+        turtleDiv.innerHTML = '';
+      }
+
+      function outf(text: string) {
+        setOutput(prev => prev + text);
+      }
+
+      function builtinRead(x: string) {
+        if (window.Sk.builtinFiles === undefined ||
+            window.Sk.builtinFiles["files"][x] === undefined)
+          throw "File not found: '" + x + "'";
+        return window.Sk.builtinFiles["files"][x];
+      }
+
+      window.Sk.configure({
+        output: outf,
+        read: builtinRead,
+        __future__: window.Sk.python3
+      });
+
+      (window.Sk.TurtleGraphics || (window.Sk.TurtleGraphics = {})).target = 'mycanvas';
+
+      await window.Sk.misceval.asyncToPromise(() => 
+        window.Sk.importMainWithBody("<stdin>", false, code, true)
+      );
+
+      // Затем проверяем решение
+      const canvas = document.querySelector('#mycanvas canvas') as HTMLCanvasElement;
+      if (canvas) {
+        const matrix = getCanvasPixelMatrix(canvas);
+        const result = checkSolution(matrix);
+        setIsCorrect(result);
+        
+        if (result) {
+          setOutput(prev => prev + '\n\n✅ Решение верное! 🎉');
+        } else {
+          setOutput(prev => prev + '\n\n❌ Решение неверное. Попробуйте еще раз.');
+        }
+      }
+
+    } catch (error) {
+      setOutput(`Error: ${error}`);
+      setIsCorrect(false);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <Box>
       <TaskDescription elevation={1}>
@@ -368,23 +425,13 @@ const PythonEditor = () => {
           <Typography variant="body1">
             Посмотрите, как должен выглядеть результат:
           </Typography>
-          <Tooltip title="Показать правильное решение">
-            <Button
-              variant="outlined"
-              startIcon={<Visibility />}
-              onClick={handleRunDemo}
-              disabled={isRunning}
-            >
-              Показать пример
-            </Button>
-          </Tooltip>
         </DemoPanel>
       )}
 
       {isAdmin && (
         <AdminPanel elevation={1}>
           <Typography variant="h6" gutterBottom>
-            ��анель администратора
+            Панель администратора
           </Typography>
           <Button
             variant="contained"
@@ -405,16 +452,38 @@ const PythonEditor = () => {
         </AdminPanel>
       )}
 
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<PlayArrow />}
-        onClick={handleRun}
-        disabled={isRunning}
-        sx={{ mb: 2 }}
-      >
-        Запустить
-      </Button>
+      <ButtonGroup variant="contained" sx={{ mb: 2, gap: 1 }}>
+        <Button
+          color="primary"
+          startIcon={<PlayArrow />}
+          onClick={handleRun}
+          disabled={isRunning}
+        >
+          Запустить
+        </Button>
+        {!isAdmin && (
+          <>
+            <Button
+              color="secondary"
+              startIcon={<Send />}
+              onClick={handleSubmit}
+              disabled={isRunning}
+            >
+              Отправить решение
+            </Button>
+            {currentTask.solution && (
+              <Button
+                color="info"
+                startIcon={<Visibility />}
+                onClick={handleRunDemo}
+                disabled={isRunning}
+              >
+                Показать пример
+              </Button>
+            )}
+          </>
+        )}
+      </ButtonGroup>
 
       <EditorContainer>
         <Paper elevation={3}>
@@ -462,21 +531,6 @@ const PythonEditor = () => {
           </OutputArea>
         </Paper>
       </EditorContainer>
-
-      {!isAdmin && isCorrect !== null && (
-        <Paper 
-          elevation={1} 
-          sx={{ 
-            p: 2, 
-            mb: 2, 
-            backgroundColor: isCorrect ? '#e8f5e9' : '#ffebee'
-          }}
-        >
-          <Typography variant="h6" color={isCorrect ? 'success.main' : 'error.main'}>
-            {isCorrect ? 'Решение верное!' : 'Решение неверное. Попробуйте еще раз.'}
-          </Typography>
-        </Paper>
-      )}
     </Box>
   );
 };
