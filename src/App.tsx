@@ -1,5 +1,6 @@
 import { Container, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import PythonEditor from './components/PythonEditor';
+import { TaskProvider } from './context/TaskContext';
 
 const theme = createTheme({
   palette: {
@@ -11,9 +12,11 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="xl" sx={{ py: 2 }}>
-        <PythonEditor />
-      </Container>
+      <TaskProvider>
+        <Container maxWidth="xl" sx={{ py: 2 }}>
+          <PythonEditor />
+        </Container>
+      </TaskProvider>
     </ThemeProvider>
   );
 };
