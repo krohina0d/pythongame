@@ -1,9 +1,11 @@
 import { Box, Button, Paper, Typography, IconButton, Tooltip, TextField } from '@mui/material';
 import { PlayArrow, AdminPanelSettings, Visibility, Edit, Save, Cancel } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { styled } from '@mui/material/styles';
 import { useTask } from '../context/TaskContext';
 import { getCanvasPixelMatrix } from '../utils/canvasUtils';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-python';
 
 const EditorContainer = styled(Box)(({ theme }) => ({
   display: 'grid',
@@ -17,6 +19,7 @@ const CodeEditorContainer = styled(Box)({
   width: '100%',
   height: '100%',
   display: 'flex',
+  backgroundColor: '#1e1e1e',
 });
 
 const LineNumbers = styled(Box)(({ theme }) => ({
@@ -26,26 +29,66 @@ const LineNumbers = styled(Box)(({ theme }) => ({
   color: '#858585',
   fontFamily: 'monospace',
   fontSize: '14px',
-  padding: `${theme.spacing(2)} ${theme.spacing(1)}`,
+  padding: theme.spacing(2),
   textAlign: 'right',
   userSelect: 'none',
-  borderRight: '1px solid #333',
 }));
 
+const CodeEditorWrapper = styled(Box)({
+  position: 'relative',
+  flex: 1,
+  height: '100%',
+  overflow: 'hidden',
+});
+
+const PreCode = styled('pre')({
+  margin: 0,
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  padding: '16px',
+  background: 'transparent !important',
+  pointerEvents: 'none',
+  overflow: 'auto',
+  '& code': {
+    background: 'transparent !important',
+    color: '#fff !important',
+    fontFamily: 'monospace',
+    fontSize: '14px',
+    lineHeight: '1.5',
+    tabSize: 4,
+    whiteSpace: 'pre',
+    display: 'block',
+  }
+});
+
 const CodeEditor = styled('textarea')(({ theme }) => ({
-  width: 'calc(100% - 40px)',
+  width: '100%',
   height: '100%',
   fontFamily: 'monospace',
   fontSize: '14px',
   padding: theme.spacing(2),
   backgroundColor: '#1e1e1e',
-  color: '#ffffff',
+  color: 'transparent',
+  caretColor: 'white',
   border: 'none',
   resize: 'none',
   lineHeight: '1.5',
+  position: 'absolute',
+  top: 0,
+  left: 0,
   '&:focus': {
     outline: 'none',
   },
+  '&::selection': {
+    background: 'rgba(255, 255, 255, 0.2)',
+    color: 'transparent',
+  },
+  whiteSpace: 'pre',
+  overflowWrap: 'normal',
+  overflowX: 'auto',
 }));
 
 const OutputArea = styled('pre')(({ theme }) => ({
@@ -105,6 +148,8 @@ const PythonEditor = () => {
   const [editedTitle, setEditedTitle] = useState(currentTask.title);
   const [editedDescription, setEditedDescription] = useState(currentTask.description);
   const [lineCount, setLineCount] = useState(1);
+  const codeRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
 
   useEffect(() => {
     const turtleDiv = document.getElementById('mycanvas');
@@ -112,6 +157,17 @@ const PythonEditor = () => {
       turtleDiv.innerHTML = '';
     }
   }, []);
+
+  useEffect(() => {
+    highlightCode();
+  }, [code]);
+
+  const highlightCode = () => {
+    if (preRef.current) {
+      const highlighted = Prism.highlight(code, Prism.languages.python, 'python');
+      preRef.current.querySelector('code')!.innerHTML = highlighted;
+    }
+  };
 
   const handleRun = async () => {
     setIsRunning(true);
@@ -186,7 +242,7 @@ const PythonEditor = () => {
       }
 
       function outf(text: string) {
-        // Не показываем вывод при демонстрации
+        // Не показываем вывод ри демонстрации
       }
 
       function builtinRead(x: string) {
@@ -241,6 +297,12 @@ const PythonEditor = () => {
     setCode(newCode);
     const lines = newCode.split('\n').length;
     setLineCount(lines);
+
+    // Синхронизируем скролл
+    if (codeRef.current && preRef.current) {
+      preRef.current.scrollTop = codeRef.current.scrollTop;
+      preRef.current.scrollLeft = codeRef.current.scrollLeft;
+    }
   };
 
   // Создаем массив номеров строк
@@ -322,7 +384,7 @@ const PythonEditor = () => {
       {isAdmin && (
         <AdminPanel elevation={1}>
           <Typography variant="h6" gutterBottom>
-            Панель администратора
+            ��анель администратора
           </Typography>
           <Button
             variant="contained"
@@ -362,17 +424,27 @@ const PythonEditor = () => {
                 <div key={num}>{num}</div>
               ))}
             </LineNumbers>
-            <CodeEditor
-              value={code}
-              onChange={handleCodeChange}
-              disabled={isRunning}
-              onScroll={(e) => {
-                const lineNumbers = document.querySelector('[class*="LineNumbers"]');
-                if (lineNumbers) {
-                  lineNumbers.scrollTop = e.currentTarget.scrollTop;
-                }
-              }}
-            />
+            <CodeEditorWrapper>
+              <CodeEditor
+                ref={codeRef}
+                value={code}
+                onChange={handleCodeChange}
+                disabled={isRunning}
+                onScroll={(e) => {
+                  const lineNumbers = document.querySelector('[class*="LineNumbers"]');
+                  if (lineNumbers) {
+                    lineNumbers.scrollTop = e.currentTarget.scrollTop;
+                  }
+                  if (preRef.current) {
+                    preRef.current.scrollTop = e.currentTarget.scrollTop;
+                    preRef.current.scrollLeft = e.currentTarget.scrollLeft;
+                  }
+                }}
+              />
+              <PreCode ref={preRef}>
+                <code className="language-python"></code>
+              </PreCode>
+            </CodeEditorWrapper>
           </CodeEditorContainer>
         </Paper>
         <Paper elevation={3} sx={{ p: 2, display: 'flex', flexDirection: 'column', height: '100%' }}>
