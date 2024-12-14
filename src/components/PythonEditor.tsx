@@ -148,8 +148,8 @@ const PythonEditor = () => {
   const [editedTitle, setEditedTitle] = useState(currentTask.title);
   const [editedDescription, setEditedDescription] = useState(currentTask.description);
   const [lineCount, setLineCount] = useState(1);
-  const codeRef = useRef<HTMLTextAreaElement>(null);
-  const preRef = useRef<HTMLPreElement>(null);
+  const codeRef = useRef<HTMLTextAreaElement | null>(null);
+  const preRef = useRef<HTMLPreElement | null>(null);
 
   useEffect(() => {
     const turtleDiv = document.getElementById('mycanvas');
